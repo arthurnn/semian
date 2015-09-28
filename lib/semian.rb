@@ -31,7 +31,7 @@ require 'semian/instrumentable'
 # Resources also integrate a circuit breaker in order to fail faster and to let the
 # resource the time to recover. If `error_threshold` errors happen in the span of `error_timeout`
 # then the circuit will be opened and every attempt to acquire the resource will immediately fail.
-# 
+#
 # Once in open state, after `error_timeout` is elapsed, the ciruit will transition in the half-open state.
 # In that state a single error will fully re-open the circuit, and the circuit will transition back to the closed
 # state only after the resource is acquired `success_threshold` consecutive times.
@@ -119,10 +119,12 @@ module Semian
   # Returns the registered resource.
   def register(name, tickets:, permissions: 0660, timeout: 0, error_threshold:, error_timeout:, success_threshold:, exceptions: [])
     circuit_breaker = CircuitBreaker.new(
+      name,
       success_threshold: success_threshold,
       error_threshold: error_threshold,
       error_timeout: error_timeout,
       exceptions: Array(exceptions) + [::Semian::BaseError],
+      permissions: permissions
     )
     resource = Resource.new(name, tickets: tickets, permissions: permissions, timeout: timeout)
     resources[name] = ProtectedResource.new(resource, circuit_breaker)
@@ -154,8 +156,10 @@ require 'semian/circuit_breaker'
 require 'semian/protected_resource'
 require 'semian/unprotected_resource'
 require 'semian/platform'
+require 'semian/circuit_breaker_shared_data'
 if Semian.sysv_semaphores_supported? && Semian.semaphores_enabled?
   require 'semian/semian'
+  require 'semian_cb_data/semian_cb_data'
 else
   Semian::MAX_TICKETS = 0
   Semian.logger.info("Semian sysv semaphores are not supported on #{RUBY_PLATFORM} - all operations will no-op") unless Semian.sysv_semaphores_supported?
